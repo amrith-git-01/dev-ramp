@@ -18,7 +18,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // Get repository path from environment variable
-const REPO_PATH = process.env.REPO_PATH || process.cwd();
+const REPO_PATH = process.env['REPO_PATH'] || process.cwd();
 
 // Directories to exclude from analysis
 const EXCLUDED_DIRS = new Set([
@@ -228,8 +228,8 @@ function analyzeDependencies(repoPath: string): Dependency[] {
     // Python imports
     const pythonImports = content.matchAll(/^(?:from|import)\s+([a-zA-Z0-9_\.]+)/gm);
     for (const match of pythonImports) {
-      const depName = match[1].split('.')[0];
-      if (!depName.startsWith('.')) {
+      const depName = match[1]?.split('.')[0];
+      if (depName && !depName.startsWith('.')) {
         if (!dependencyMap.has(depName)) {
           dependencyMap.set(depName, { type: 'import', files: new Set() });
         }
@@ -241,12 +241,14 @@ function analyzeDependencies(repoPath: string): Dependency[] {
     const jsImports = content.matchAll(/(?:import|require)\s*\(?['"]([^'"]+)['"]\)?/g);
     for (const match of jsImports) {
       const depName = match[1];
-      if (!depName.startsWith('.') && !depName.startsWith('/')) {
+      if (depName && !depName.startsWith('.') && !depName.startsWith('/')) {
         const pkgName = depName.split('/')[0];
-        if (!dependencyMap.has(pkgName)) {
+        if (pkgName && !dependencyMap.has(pkgName)) {
           dependencyMap.set(pkgName, { type: 'import', files: new Set() });
         }
-        dependencyMap.get(pkgName)!.files.add(file.path);
+        if (pkgName) {
+          dependencyMap.get(pkgName)!.files.add(file.path);
+        }
       }
     }
   }
@@ -274,7 +276,7 @@ function analyzeDependencies(repoPath: string): Dependency[] {
       const lines = content.split('\n');
       for (const line of lines) {
         const match = line.match(/^([a-zA-Z0-9_-]+)/);
-        if (match) {
+        if (match && match[1]) {
           const dep = match[1];
           if (!dependencyMap.has(dep)) {
             dependencyMap.set(dep, { type: 'package', files: new Set() });

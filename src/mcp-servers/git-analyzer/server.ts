@@ -19,7 +19,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // Get repository path from environment variable
-const REPO_PATH = process.env.REPO_PATH || process.cwd();
+const REPO_PATH = process.env['REPO_PATH'] || process.cwd();
 
 interface HotspotFile {
   path: string;
@@ -107,7 +107,10 @@ function getHotspotFiles(limit: number = 20): HotspotFile[] {
     for (const line of lines) {
       if (line.includes('|')) {
         // This is a commit header line
-        const [hash, author, date] = line.split('|');
+        const parts = line.split('|');
+        const hash = parts[0] ?? '';
+        const author = parts[1] ?? '';
+        const date = parts[2] ?? '';
         currentCommit = hash;
         currentAuthor = author;
         currentDate = date;
@@ -208,20 +211,20 @@ function getContributors(): Contributor[] {
     }>();
     
     let currentCommit = '';
-    let currentAuthor = '';
     let currentEmail = '';
-    let currentDate = '';
     
     for (const line of lines) {
       if (line.includes('|')) {
         // This is a commit header
-        const [hash, author, email, date] = line.split('|');
+        const parts = line.split('|');
+        const hash = parts[0] ?? '';
+        const author = parts[1] ?? '';
+        const email = parts[2] ?? '';
+        const date = parts[3] ?? '';
         currentCommit = hash;
-        currentAuthor = author;
         currentEmail = email;
-        currentDate = date;
         
-        if (!contributorMap.has(email)) {
+        if (email && !contributorMap.has(email)) {
           contributorMap.set(email, {
             name: author,
             email,
@@ -234,31 +237,39 @@ function getContributors(): Contributor[] {
           });
         }
         
-        const contributor = contributorMap.get(email)!;
-        contributor.commits.add(hash);
+        const contributor = email ? contributorMap.get(email) : null;
+        if (contributor) {
+          contributor.commits.add(hash);
+        }
         
         // Update first and last commit dates
-        if (new Date(date) < new Date(contributor.firstCommit)) {
+        if (date && contributor && new Date(date) < new Date(contributor.firstCommit)) {
           contributor.firstCommit = date;
         }
-        if (new Date(date) > new Date(contributor.lastCommit)) {
+        if (date && contributor && new Date(date) > new Date(contributor.lastCommit)) {
           contributor.lastCommit = date;
         }
       } else if (line.trim() && currentCommit) {
         // This is a numstat line (additions deletions filename)
         const match = line.match(/^(\d+|-)\s+(\d+|-)\s+(.+)$/);
         if (match) {
-          const [, added, deleted, filePath] = match;
-          const contributor = contributorMap.get(currentEmail)!;
+          const added = match[1];
+          const deleted = match[2];
+          const filePath = match[3];
+          const contributor = currentEmail ? contributorMap.get(currentEmail) : null;
           
-          if (added !== '-') {
-            contributor.linesAdded += parseInt(added, 10);
+          if (contributor) {
+            if (added && added !== '-') {
+              contributor.linesAdded += parseInt(added, 10);
+            }
+            if (deleted && deleted !== '-') {
+              contributor.linesDeleted += parseInt(deleted, 10);
+            }
+            
+            if (filePath) {
+              contributor.files.add(filePath);
+            }
           }
-          if (deleted !== '-') {
-            contributor.linesDeleted += parseInt(deleted, 10);
-          }
-          
-          contributor.files.add(filePath);
         }
       }
     }
@@ -323,10 +334,16 @@ function getFileHistory(filePath: string, limit: number = 50): FileHistory {
         }
         
         // Parse new commit header
-        const [hash, author, date, ...messageParts] = line.split('|');
+        const parts = line.split('|');
+        const hash = parts[0] ?? '';
+        const author = parts[1] ?? '';
+        const date = parts[2] ?? '';
+        const messageParts = parts.slice(3);
         const message = messageParts.join('|');
         
-        authors.add(author);
+        if (author) {
+          authors.add(author);
+        }
         
         currentCommit = {
           hash,
@@ -342,11 +359,12 @@ function getFileHistory(filePath: string, limit: number = 50): FileHistory {
         // Parse numstat line
         const match = line.match(/^(\d+|-)\s+(\d+|-)\s+/);
         if (match) {
-          const [, added, deleted] = match;
-          if (added !== '-') {
+          const added = match[1];
+          const deleted = match[2];
+          if (added && added !== '-') {
             currentCommit.changes.additions += parseInt(added, 10);
           }
-          if (deleted !== '-') {
+          if (deleted && deleted !== '-') {
             currentCommit.changes.deletions += parseInt(deleted, 10);
           }
         }
