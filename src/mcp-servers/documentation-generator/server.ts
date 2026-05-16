@@ -25,15 +25,22 @@ import { SectionUpdater } from './src/tools/section-updater.js';
 import { DocumentValidator } from './src/tools/validator.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const currentFilePath = fileURLToPath(import.meta.url);
+const currentDir = path.dirname(currentFilePath);
 
 // Load .env file manually (no dotenv dependency needed)
 function loadEnvFile(): void {
+  const repoPath = process.env['REPO_PATH'] || process.cwd();
   const searchPaths = [
-    path.resolve(process.env['REPO_PATH'] || process.cwd(), '.env'),
+    path.resolve(repoPath, '.env'),
     path.resolve(process.cwd(), '.env'),
-    path.resolve(__dirname, '../../../../.env'),
-    path.resolve(__dirname, '../../../.env'),
+    path.resolve(currentDir, '../../../.env'),
+    path.resolve(currentDir, '../../../../.env'),
+    path.join(path.dirname(repoPath), '.env'),
   ];
+  console.error('[loadEnvFile] Searching for .env in paths:', searchPaths);
   for (const envPath of searchPaths) {
     if (fs.existsSync(envPath)) {
       const content = fs.readFileSync(envPath, 'utf-8');
@@ -50,7 +57,7 @@ function loadEnvFile(): void {
           }
         }
       }
-      console.error(`Loaded environment from ${envPath}`);
+      console.error(`[loadEnvFile] Loaded environment from ${envPath}`);
       return;
     }
   }

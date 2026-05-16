@@ -7,6 +7,10 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const currentFilePath = fileURLToPath(import.meta.url);
+const currentDir = path.dirname(currentFilePath);
 
 interface MCPServerConfig {
   command: string;
@@ -170,7 +174,7 @@ export async function createMCPClient(repoPath: string): Promise<MCPClient> {
   const nodeExecutable = process.execPath;
   const env = { REPO_PATH: repoPath };
 
-  const serversDir = path.resolve(__dirname, '../../../..');
+  const serversDir = path.resolve(currentDir, '../../../..');
 
   // Connect to code-analyzer server
   try {
