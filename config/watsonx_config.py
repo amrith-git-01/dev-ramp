@@ -7,6 +7,10 @@ All sensitive credentials should be loaded from environment variables.
 
 import os
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class WatsonxConfig:
@@ -17,13 +21,13 @@ class WatsonxConfig:
         self.api_key = os.getenv('WATSONX_API_KEY')
         self.project_id = os.getenv('WATSONX_PROJECT_ID')
         self.url = 'https://us-south.ml.cloud.ibm.com'
-        self.model_id = 'ibm/granite-13b-chat-v2'
+        self.model_id = os.getenv('WATSONX_MODEL_ID', 'openai/gpt-oss-120b')
         
-        # Model parameters
+        # Model parameters - read from env or use defaults
         self.parameters = {
-            'max_new_tokens': 1000,
-            'temperature': 0.7,
-            'top_p': 0.9,
+            'max_new_tokens': int(os.getenv('WATSONX_MAX_TOKENS', '100000')),
+            'temperature': float(os.getenv('WATSONX_TEMPERATURE', '0.2')),
+            'top_p': float(os.getenv('WATSONX_TOP_P', '0.9')),
             'decoding_method': 'greedy',
             'repetition_penalty': 1.0
         }
@@ -43,7 +47,7 @@ class WatsonxConfig:
         
         return True, ""
     
-    def get_credentials(self) -> Dict[str, str]:
+    def get_credentials(self) -> Dict[str, Any]:
         """
         Get credentials dictionary for watsonx.ai API.
         
