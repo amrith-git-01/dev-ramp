@@ -7,3 +7,4 @@
 - Wait after each phase
 - Use async patterns consistently
 - Avoid hardcoded credentials
+- Always use pnpm

@@ -5,13 +5,15 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "npm run build:code-analyzer && npm run build:git-analyzer",
+    "build": "npm run build:code-analyzer && npm run build:git-analyzer && npm run build:documentation-generator",
     "build:code-analyzer": "tsc --project code-analyzer/tsconfig.json",
     "build:git-analyzer": "tsc --project git-analyzer/tsconfig.json",
+    "build:documentation-generator": "tsc --project documentation-generator/tsconfig.json",
     "start:code-analyzer": "node code-analyzer/build/server.js",
     "start:git-analyzer": "node git-analyzer/build/server.js",
+    "start:documentation-generator": "node documentation-generator/build/server.js",
     "watch": "tsc --watch",
-    "clean": "rimraf code-analyzer/build git-analyzer/build",
+    "clean": "rimraf code-analyzer/build git-analyzer/build documentation-generator/build",
     "prebuild": "npm run clean",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

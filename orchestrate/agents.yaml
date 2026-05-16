@@ -204,7 +204,7 @@ integrations:
     servers:
       - name: "git-analyzer"
         type: "git"
-      - name: "code-parser"
+      - name: "code-analyzer"
         type: "code-analysis"
       - name: "doc-generator"
         type: "documentation"
