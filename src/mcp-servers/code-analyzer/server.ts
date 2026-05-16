@@ -324,7 +324,15 @@ function getComplexityMetrics(repoPath: string): ComplexityMetrics[] {
     ];
     let complexity = 1; // Base complexity
     for (const keyword of complexityKeywords) {
-      const regex = new RegExp(`\\b${keyword}\\b`, 'g');
+      // Escape special regex characters
+      const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Use word boundaries only for alphanumeric keywords
+      const pattern = /^[a-zA-Z]+$/.test(keyword) 
+        ? `\\b${escapedKeyword}\\b` 
+        : escapedKeyword;
+        
+      const regex = new RegExp(pattern, 'g');
       const matches = content.match(regex);
       if (matches) {
         complexity += matches.length;
