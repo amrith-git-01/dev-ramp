@@ -1,4 +1,5 @@
 """Bob Skill: Full repo onboarding. Usage: @onboard [path]"""
+
 import subprocess
 import sys
 from pathlib import Path
@@ -17,7 +18,7 @@ def _normalize_repo_path(repo_path: str) -> str:
 
 async def onboard(repo_path: str = ".", context=None) -> str:
     """
-    Run the DevRamp multi-agent onboarding pipeline.
+    Run the RepoRadar multi-agent onboarding pipeline.
 
     Usage:
         @onboard
@@ -55,7 +56,7 @@ async def onboard(repo_path: str = ".", context=None) -> str:
     body = onboarding.read_text(encoding="utf-8") if onboarding.exists() else ""
     preview = body[:6000]
     return (
-        "## Onboarding complete (DevRamp pipeline)\n\n"
+        "## Onboarding complete (RepoRadar pipeline)\n\n"
         "Generated on disk:\n"
         "- `docs/ONBOARDING.md`\n"
         "- `docs/ARCHITECTURE.md`\n"
@@ -70,7 +71,7 @@ async def onboard(repo_path: str = ".", context=None) -> str:
 
 __skill_metadata__ = {
     "name": "onboard",
-    "description": "Run full DevRamp onboarding (MCP + watsonx) and write docs with Mermaid diagrams",
+    "description": "Run full RepoRadar onboarding (MCP + watsonx) and write docs with Mermaid diagrams",
     "usage": "@onboard [repo_path]",
     "aliases": ["onboard_me", "onboard_repo"],
     "category": "onboarding",

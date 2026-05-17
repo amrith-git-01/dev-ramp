@@ -1,6 +1,6 @@
-# DevRamp
+# RepoRadar
 
-**DevRamp** is an AI-powered legacy codebase onboarding accelerator. It combines Python multi-agent orchestration, MCP servers, and IBM watsonx.ai to generate onboarding documentation grounded in real repository and git evidence.
+**RepoRadar** is an AI-powered legacy codebase onboarding accelerator. It combines Python multi-agent orchestration, MCP servers, and IBM watsonx.ai to generate onboarding documentation grounded in real repository and git evidence.
 
 ## Core capabilities
 

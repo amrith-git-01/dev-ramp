@@ -6,33 +6,33 @@ documentation including guides, API references, and FAQs.
 """
 
 import json
-from typing import Dict, Any, List
 from pathlib import Path
+from typing import Any, Dict, List
 
 from src.agents.base_agent import BaseAgent
 from src.agents.diagram_utils import (
     embed_mermaid_in_markdown,
-    read_mermaid_file,
     normalize_mermaid,
+    read_mermaid_file,
 )
 
 
 class DocumentationGenerator(BaseAgent):
     """
     Agent that generates comprehensive onboarding documentation.
-    
+
     Aggregates analysis results from other agents and uses watsonx.ai to
     generate polished, comprehensive documentation for new developers.
     """
-    
+
     def __init__(self):
         """Initialize the Documentation Generator agent."""
         super().__init__(name="DocumentationGenerator")
-    
+
     async def analyze(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate comprehensive documentation.
-        
+
         Args:
             context: Analysis context containing:
                 - repo_path: Path to repository
@@ -40,11 +40,11 @@ class DocumentationGenerator(BaseAgent):
                 - architecture_result: Results from architecture analyzer
                 - workflow_result: Results from workflow extractor
                 - hotspot_result: Results from hotspot detector
-                
+
         Returns:
             dict: Analysis results with paths to generated files
         """
-        repo_path = context.get('repo_path', '.')
+        repo_path = context.get("repo_path", ".")
         docs_root = Path(context.get("output_dir", "docs"))
         docs_root.mkdir(parents=True, exist_ok=True)
 
@@ -85,7 +85,8 @@ class DocumentationGenerator(BaseAgent):
             f"**Tech stack:** {tech}\n\n",
             "See also: [ARCHITECTURE.md](ARCHITECTURE.md) | [WORKFLOWS.md](WORKFLOWS.md)\n\n",
             "## Project overview\n\n",
-            summary or "_See [ARCHITECTURE.md](ARCHITECTURE.md) for the full architecture summary._\n\n",
+            summary
+            or "_See [ARCHITECTURE.md](ARCHITECTURE.md) for the full architecture summary._\n\n",
             "## Architecture\n\n",
         ]
 
@@ -112,7 +113,9 @@ class DocumentationGenerator(BaseAgent):
                 lines.append(f"### {wf.get('name', 'Workflow')}\n\n")
                 seq = wf.get("diagrams", {}).get("sequence")
                 if seq:
-                    lines.append(embed_mermaid_in_markdown("Sequence", seq, heading_level=4))
+                    lines.append(
+                        embed_mermaid_in_markdown("Sequence", seq, heading_level=4)
+                    )
 
         lines.append("\n## Code hotspots\n\n")
         hotspot_parsed = hotspot_result.get("parsed", {})
@@ -121,12 +124,14 @@ class DocumentationGenerator(BaseAgent):
                 f"- **`{h.get('file', 'unknown')}`** ({h.get('risk', 'medium')}): "
                 f"{h.get('advice', 'Review before editing.')}\n"
             )
-        heatmap = hotspot_parsed.get("diagrams", {}).get("heatmap") or read_mermaid_file(
-            docs_root / "diagrams" / "hotspot-heatmap.mmd"
-        )
+        heatmap = hotspot_parsed.get("diagrams", {}).get(
+            "heatmap"
+        ) or read_mermaid_file(docs_root / "diagrams" / "hotspot-heatmap.mmd")
         if heatmap:
             lines.append("\n")
-            lines.append(embed_mermaid_in_markdown("Hotspot map", heatmap, heading_level=3))
+            lines.append(
+                embed_mermaid_in_markdown("Hotspot map", heatmap, heading_level=3)
+            )
 
         lines.extend(
             [
@@ -142,45 +147,47 @@ class DocumentationGenerator(BaseAgent):
             ]
         )
         return "".join(lines)
-    
+
     async def _generate_onboarding_guide(
         self,
         architecture_result: Dict[str, Any],
         workflow_result: Dict[str, Any],
         hotspot_result: Dict[str, Any],
-        repo_path: str
+        repo_path: str,
     ) -> str:
         """
         Generate comprehensive onboarding guide.
-        
+
         Args:
             architecture_result: Architecture analysis results
             workflow_result: Workflow extraction results
             hotspot_result: Hotspot detection results
             repo_path: Path to repository
-            
+
         Returns:
             str: Markdown-formatted onboarding guide
         """
-        arch_parsed = architecture_result.get('parsed', {})
-        workflow_parsed = workflow_result.get('parsed', {})
-        hotspot_parsed = hotspot_result.get('parsed', {})
-        arch_diagrams = arch_parsed.get('diagrams', {})
-        workflow_diagrams = workflow_parsed.get('workflows', [])
-        hotspot_diagrams = hotspot_parsed.get('diagrams', {})
+        arch_parsed = architecture_result.get("parsed", {})
+        workflow_parsed = workflow_result.get("parsed", {})
+        hotspot_parsed = hotspot_result.get("parsed", {})
+        arch_diagrams = arch_parsed.get("diagrams", {})
+        workflow_diagrams = workflow_parsed.get("workflows", [])
+        hotspot_diagrams = hotspot_parsed.get("diagrams", {})
 
-        structure = architecture_result.get('structure', {})
-        entry_points = architecture_result.get('entry_points', [])
-        dependencies = architecture_result.get('dependencies', [])
-        hotspots = hotspot_result.get('hotspots', [])
-        
+        structure = architecture_result.get("structure", {})
+        entry_points = architecture_result.get("entry_points", [])
+        dependencies = architecture_result.get("dependencies", [])
+        hotspots = hotspot_result.get("hotspots", [])
+
         # Prepare summary
-        total_files = structure.get('totalFiles', 0)
-        file_types = structure.get('filesByExtension', {})
-        primary_lang = max(file_types.items(), key=lambda x: x[1])[0] if file_types else 'Unknown'
-        
-        critical_hotspots = [h for h in hotspots if h.get('risk_level') == 'CRITICAL']
-        
+        total_files = structure.get("totalFiles", 0)
+        file_types = structure.get("filesByExtension", {})
+        primary_lang = (
+            max(file_types.items(), key=lambda x: x[1])[0] if file_types else "Unknown"
+        )
+
+        critical_hotspots = [h for h in hotspots if h.get("risk_level") == "CRITICAL"]
+
         diagram_context = json.dumps(
             {
                 "architecture_diagrams": arch_diagrams,
@@ -244,22 +251,22 @@ Preserve every ```mermaid code block from the diagram data. Link to ARCHITECTURE
             hotspot_count=len(critical_hotspots),
             entry_points=self._format_entry_points(entry_points[:5]),
             dependencies=self._format_dependencies(dependencies[:10]),
-            hotspots=self._format_hotspots_summary(critical_hotspots[:5])
+            hotspots=self._format_hotspots_summary(critical_hotspots[:5]),
         )
-        
+
         guide = await self.generate(prompt, max_tokens=2500, temperature=0.4)
-        
+
         header = f"""# 🚀 Onboarding Guide
 
 **Welcome to the team!** This guide will help you get up to speed with the codebase.
 
-**Generated by:** DevRamp Documentation Generator  
+**Generated by:** RepoRadar Documentation Generator
 **Date:** {self._get_timestamp()}
 
 ---
 
 """
-        
+
         footer = """
 
 ---
@@ -277,7 +284,7 @@ We're excited to have you contribute! Please read through this guide and the lin
 
 **Happy coding!** 🎉
 """
-        
+
         return header + guide + footer
 
     def _ensure_diagrams_in_onboarding(
@@ -321,24 +328,22 @@ We're excited to have you contribute! Please read through this guide and the lin
         return guide + "\n\n## Diagrams\n\n" + "\n".join(blocks)
 
     async def _generate_api_reference(
-        self,
-        architecture_result: Dict[str, Any],
-        repo_path: str
+        self, architecture_result: Dict[str, Any], repo_path: str
     ) -> str:
         """
         Generate API reference documentation.
-        
+
         Args:
             architecture_result: Architecture analysis results
             repo_path: Path to repository
-            
+
         Returns:
             str: Markdown-formatted API reference
         """
-        entry_points = architecture_result.get('entry_points', [])
-        structure = architecture_result.get('structure', {})
-        dependencies = architecture_result.get('dependencies', [])
-        
+        entry_points = architecture_result.get("entry_points", [])
+        structure = architecture_result.get("structure", {})
+        dependencies = architecture_result.get("dependencies", [])
+
         prompt = self.format_prompt(
             """You are creating API reference documentation for a codebase. Generate comprehensive API documentation grounded in the provided analysis.
 
@@ -375,45 +380,47 @@ Be technical and specific. Include code examples where appropriate.""",
             entry_point_count=len(entry_points),
             dependency_count=len(dependencies),
             entry_points=self._format_entry_points(entry_points),
-            dependencies=self._format_dependencies(dependencies[:15])
+            dependencies=self._format_dependencies(dependencies[:15]),
         )
-        
+
         reference = await self.generate(prompt, max_tokens=2000, temperature=0.3)
-        
+
         header = f"""# API Reference
 
-**Generated by:** DevRamp Documentation Generator  
+**Generated by:** RepoRadar Documentation Generator
 **Date:** {self._get_timestamp()}
 
 ---
 
 """
-        
+
         return header + reference
-    
+
     async def _generate_faq(
         self,
         architecture_result: Dict[str, Any],
         workflow_result: Dict[str, Any],
-        hotspot_result: Dict[str, Any]
+        hotspot_result: Dict[str, Any],
     ) -> str:
         """
         Generate FAQ documentation.
-        
+
         Args:
             architecture_result: Architecture analysis results
             workflow_result: Workflow extraction results
             hotspot_result: Hotspot detection results
-            
+
         Returns:
             str: Markdown-formatted FAQ
         """
-        structure = architecture_result.get('structure', {})
-        hotspots = hotspot_result.get('hotspots', [])
-        
-        file_types = structure.get('filesByExtension', {})
-        primary_lang = max(file_types.items(), key=lambda x: x[1])[0] if file_types else 'Unknown'
-        
+        structure = architecture_result.get("structure", {})
+        hotspots = hotspot_result.get("hotspots", [])
+
+        file_types = structure.get("filesByExtension", {})
+        primary_lang = (
+            max(file_types.items(), key=lambda x: x[1])[0] if file_types else "Unknown"
+        )
+
         prompt = self.format_prompt(
             """You are creating a FAQ (Frequently Asked Questions) document for developers working on a codebase.
 
@@ -462,21 +469,23 @@ Generate a comprehensive FAQ in Markdown format covering:
 
 Make answers practical and actionable. Include specific examples.""",
             primary_lang=primary_lang,
-            total_files=structure.get('totalFiles', 0),
-            hotspot_count=len([h for h in hotspots if h.get('risk_level') in ['CRITICAL', 'HIGH']])
+            total_files=structure.get("totalFiles", 0),
+            hotspot_count=len(
+                [h for h in hotspots if h.get("risk_level") in ["CRITICAL", "HIGH"]]
+            ),
         )
-        
+
         faq = await self.generate(prompt, max_tokens=2000, temperature=0.4)
-        
+
         header = f"""# Frequently Asked Questions (FAQ)
 
-**Generated by:** DevRamp Documentation Generator  
+**Generated by:** RepoRadar Documentation Generator
 **Date:** {self._get_timestamp()}
 
 ---
 
 """
-        
+
         footer = """
 
 ---
@@ -493,52 +502,54 @@ If your question isn't answered here:
 
 **We're here to help!** Don't hesitate to ask questions.
 """
-        
+
         return header + faq + footer
-    
+
     def _format_entry_points(self, entry_points: List[Dict]) -> str:
         """Format entry points for prompt."""
         if not entry_points:
             return "No entry points identified."
-        
+
         lines = []
         for ep in entry_points:
-            path = ep.get('path', '')
-            ep_type = ep.get('type', '')
-            reason = ep.get('reason', '')
+            path = ep.get("path", "")
+            ep_type = ep.get("type", "")
+            reason = ep.get("reason", "")
             lines.append(f"- `{path}` ({ep_type}): {reason}")
-        
-        return '\n'.join(lines)
-    
+
+        return "\n".join(lines)
+
     def _format_dependencies(self, dependencies: List[Dict]) -> str:
         """Format dependencies for prompt."""
         if not dependencies:
             return "No dependencies found."
-        
+
         lines = []
         for dep in dependencies:
-            name = dep.get('name', '')
-            count = dep.get('count', 0)
+            name = dep.get("name", "")
+            count = dep.get("count", 0)
             lines.append(f"- `{name}`: used in {count} file(s)")
-        
-        return '\n'.join(lines)
-    
+
+        return "\n".join(lines)
+
     def _format_hotspots_summary(self, hotspots: List[Dict]) -> str:
         """Format hotspots summary for prompt."""
         if not hotspots:
             return "No critical hotspots identified."
-        
+
         lines = []
         for h in hotspots:
-            path = h.get('path', '')
-            risk = h.get('risk_score', 0)
+            path = h.get("path", "")
+            risk = h.get("risk_score", 0)
             lines.append(f"- `{path}`: Risk score {risk}/100")
-        
-        return '\n'.join(lines)
-    
+
+        return "\n".join(lines)
+
     def _get_timestamp(self) -> str:
         """Get current timestamp."""
         from datetime import datetime
-        return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 
 # Made with Bob

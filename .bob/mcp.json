@@ -3,10 +3,10 @@
     "code-analyzer": {
       "command": "node",
       "args": [
-        "C:/Users/vishn/Desktop/Programs/dev-ramp/src/mcp-servers/code-analyzer/build/server.js"
+        "C:/Users/vishn/Desktop/Programs/RepoRadar/src/mcp-servers/code-analyzer/build/server.js"
       ],
       "env": {
-        "REPO_PATH": "C:/Users/vishn/Desktop/Programs/dev-ramp/test_repo"
+        "REPO_PATH": "C:/Users/vishn/Desktop/Programs/RepoRadar/test_repo"
       },
       "alwaysAllow": [
         "get_complexity_metrics",
@@ -18,10 +18,10 @@
     "git-analyzer": {
       "command": "node",
       "args": [
-        "C:/Users/vishn/Desktop/Programs/dev-ramp/src/mcp-servers/git-analyzer/build/server.js"
+        "C:/Users/vishn/Desktop/Programs/RepoRadar/src/mcp-servers/git-analyzer/build/server.js"
       ],
       "env": {
-        "REPO_PATH": "C:/Users/vishn/Desktop/Programs/dev-ramp/test_repo"
+        "REPO_PATH": "C:/Users/vishn/Desktop/Programs/RepoRadar/test_repo"
       },
       "alwaysAllow": [
         "get_contributors",
@@ -32,11 +32,11 @@
     "documentation-generator": {
       "command": "node",
       "args": [
-        "C:/Users/vishn/Desktop/Programs/dev-ramp/src/mcp-servers/documentation-generator/build/server.js"
+        "C:/Users/vishn/Desktop/Programs/RepoRadar/src/mcp-servers/documentation-generator/build/server.js"
       ],
       "env": {
-        "REPO_PATH": "C:/Users/vishn/Desktop/Programs/dev-ramp/test_repo",
-        "OUTPUT_DIR": "C:/Users/vishn/Desktop/Programs/dev-ramp/docs/onboarding"
+        "REPO_PATH": "C:/Users/vishn/Desktop/Programs/RepoRadar/test_repo",
+        "OUTPUT_DIR": "C:/Users/vishn/Desktop/Programs/RepoRadar/docs/onboarding"
       },
       "alwaysAllow": [
         "generate_onboarding_package",

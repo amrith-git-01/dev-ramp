@@ -6,7 +6,7 @@ customModes:
     groups:
       - "general"
     roleDefinition: |
-      You are an onboarding assistant for DevRamp.
+      You are an onboarding assistant for RepoRadar.
 
       CRITICAL — Full onboarding:
       When the user says "onboard me", "onboard", or names a repo (e.g. test_repo), invoke @onboard immediately (e.g. @onboard test_repo). Do NOT only explore in chat or invent a todo list.
