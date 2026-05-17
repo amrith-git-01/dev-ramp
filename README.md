@@ -8,16 +8,28 @@ An intelligent system that uses IBM watsonx.ai, watsonx Orchestrate, and Model C
 ## 🎯 Project Overview
 
 DevRamp accelerates the onboarding process for legacy codebases by automatically:
+
 - Mapping codebase architecture and dependencies
 - Extracting development workflows and patterns
 - Generating comprehensive documentation
 - Identifying code hotspots and technical debt
 
 ### Key Technologies
+
 - **IBM watsonx.ai**: AI-powered code analysis using Granite models
 - **watsonx Orchestrate**: Multi-agent orchestration for complex analysis tasks
 - **Model Context Protocol (MCP)**: Standardized context sharing between AI agents
 - **Python & TypeScript**: Core implementation languages
+
+## Bob onboarding demo (primary)
+
+1. Build MCP servers: `cd src/mcp-servers && npm install && npm run build`
+2. Copy `.bob/mcp_servers.example.json` → global Bob `mcp_servers.json` (see [docs/MCP_SETUP.md](docs/MCP_SETUP.md))
+3. Set watsonx credentials in `.env`
+4. Open **Onboarding Assistant** in Bob IDE
+5. Run `@onboard` or say `onboard me`
+6. Review `docs/ONBOARDING.md` (embedded Mermaid diagrams)
+7. Export Bob session to `bob_sessions/02_onboarding/` for judges
 
 ## 📋 Prerequisites
 
@@ -57,7 +69,7 @@ pip install -r requirements.txt
 
 #### Get Your Credentials
 
-1. **API Key**: 
+1. **API Key**:
    - Go to [IBM Cloud API Keys](https://cloud.ibm.com/iam/apikeys)
    - Click "Create an IBM Cloud API key"
    - Copy the generated API key
@@ -79,6 +91,7 @@ cp .env.example .env
 ```
 
 Add your credentials to `.env`:
+
 ```env
 WATSONX_API_KEY=your_actual_api_key_here
 WATSONX_PROJECT_ID=your_actual_project_id_here
@@ -109,6 +122,7 @@ python main.py
 ```
 
 This will display:
+
 - Environment configuration status
 - Component availability check
 - Next steps
@@ -120,6 +134,7 @@ python test_watsonx.py
 ```
 
 This script will:
+
 - Validate your credentials
 - Test API connectivity
 - Send a test prompt to watsonx.ai
@@ -158,24 +173,28 @@ devramp/
 The system uses four specialized AI agents defined in `orchestrate/agents.yaml`:
 
 ### 1. Architecture Analyzer
+
 - Maps codebase structure and organization
 - Identifies architectural patterns
 - Analyzes dependencies and relationships
 - Generates dependency graphs
 
 ### 2. Workflow Extractor
+
 - Identifies development workflows
 - Documents build and deployment processes
 - Extracts testing strategies
 - Maps CI/CD pipelines
 
 ### 3. Documentation Generator
+
 - Creates comprehensive onboarding guides
 - Generates API documentation
 - Produces troubleshooting guides
 - Documents code conventions
 
 ### 4. Hotspot Detector
+
 - Analyzes git history for frequently changed files
 - Detects code complexity metrics
 - Identifies technical debt
@@ -186,12 +205,14 @@ The system uses four specialized AI agents defined in `orchestrate/agents.yaml`:
 ### watsonx.ai Model Settings
 
 Default configuration in `config/watsonx_config.py`:
+
 - **Model**: `ibm/granite-13b-chat-v2`
 - **Max Tokens**: 1000
 - **Temperature**: 0.7
 - **Top P**: 0.9
 
 You can override these in your `.env` file:
+
 ```env
 WATSONX_MODEL_ID=ibm/granite-13b-chat-v2
 WATSONX_MAX_TOKENS=1000
@@ -214,15 +235,19 @@ WATSONX_TOP_P=0.9
 ### Troubleshooting
 
 **Issue**: `WATSONX_API_KEY environment variable is not set`
+
 - **Solution**: Ensure you've created `.env` file and added your API key
 
 **Issue**: `Import "ibm_watsonx_ai" could not be resolved`
+
 - **Solution**: Install Python dependencies: `pip install -r requirements.txt`
 
 **Issue**: `node: command not found`
+
 - **Solution**: Install Node.js from [nodejs.org](https://nodejs.org/)
 
 **Issue**: API connection fails
+
 - **Solution**: Verify your API key and project ID are correct
 - Check your internet connection
 - Ensure you have access to watsonx.ai
@@ -272,22 +297,24 @@ npm run build
 See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) for detailed instructions.
 
 Quick setup:
+
 - **Windows**: Edit `%APPDATA%\.bob\mcp_servers.json`
 - **macOS/Linux**: Edit `~/.bob/mcp_servers.json`
 
 Example configuration:
+
 ```json
 {
   "mcpServers": {
     "code-analyzer": {
       "command": "node",
       "args": ["ABSOLUTE_PATH/src/mcp-servers/code-analyzer/build/server.js"],
-      "env": {"REPO_PATH": "ABSOLUTE_PATH/target_repo"}
+      "env": { "REPO_PATH": "ABSOLUTE_PATH/target_repo" }
     },
     "git-analyzer": {
       "command": "node",
       "args": ["ABSOLUTE_PATH/src/mcp-servers/git-analyzer/build/server.js"],
-      "env": {"REPO_PATH": "ABSOLUTE_PATH/target_repo"}
+      "env": { "REPO_PATH": "ABSOLUTE_PATH/target_repo" }
     }
   }
 }
@@ -335,6 +362,7 @@ python run_analysis.py --help
 ```
 
 Options:
+
 - `--repo-path PATH` - Repository to analyze (default: current directory)
 - `--output-dir DIR` - Output directory (default: docs/onboarding)
 - `--agents AGENT [AGENT ...]` - Specific agents to run
@@ -380,6 +408,7 @@ After completing Phase 2, the next phase will include:
 ## 🤝 Contributing
 
 This project follows the guidelines in `rules.md`:
+
 - Never use placeholder production code
 - Prefer runnable implementations
 - Keep modules independent
@@ -393,6 +422,7 @@ MIT License - See LICENSE file for details
 ## 🆘 Support
 
 For issues or questions:
+
 1. Check the troubleshooting section above
 2. Review `plan.md` for project details
 3. Review `rules.md` for development guidelines
@@ -401,6 +431,7 @@ For issues or questions:
 ## 🎉 Phase 2 Complete!
 
 You now have a fully functional AI-powered codebase analysis system with:
+
 - ✅ MCP servers for code and git analysis
 - ✅ AI agents using watsonx.ai
 - ✅ Automated documentation generation

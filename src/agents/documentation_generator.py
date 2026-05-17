@@ -10,6 +10,7 @@ from typing import Dict, Any, List
 from pathlib import Path
 
 from src.agents.base_agent import BaseAgent
+from src.agents.diagram_utils import embed_mermaid_in_markdown
 
 
 class DocumentationGenerator(BaseAgent):
@@ -40,7 +41,9 @@ class DocumentationGenerator(BaseAgent):
             dict: Analysis results with paths to generated files
         """
         repo_path = context.get('repo_path', '.')
-        output_dir = Path(context.get('output_dir', 'docs/onboarding'))
+        docs_root = Path(context.get('output_dir', 'docs'))
+        docs_root.mkdir(parents=True, exist_ok=True)
+        output_dir = docs_root / 'onboarding'
         output_dir.mkdir(parents=True, exist_ok=True)
         
         self.log_info("Generating comprehensive documentation")
@@ -55,7 +58,10 @@ class DocumentationGenerator(BaseAgent):
         onboarding_guide = await self._generate_onboarding_guide(
             architecture_result, workflow_result, hotspot_result, repo_path
         )
-        
+        onboarding_guide = self._ensure_diagrams_in_onboarding(
+            onboarding_guide, architecture_result, workflow_result, hotspot_result
+        )
+
         # Step 2: Generate API reference
         self.log_info("Generating API reference...")
         api_reference = await self._generate_api_reference(
@@ -69,9 +75,9 @@ class DocumentationGenerator(BaseAgent):
         )
         
         # Step 4: Save outputs
-        onboarding_path = output_dir / 'ONBOARDING_GUIDE.md'
-        api_path = output_dir / 'API_REFERENCE.md'
-        faq_path = output_dir / 'FAQ.md'
+        onboarding_path = docs_root / 'ONBOARDING.md'
+        api_path = docs_root / 'API_REFERENCE.md'
+        faq_path = docs_root / 'FAQ.md'
         
         with open(onboarding_path, 'w', encoding='utf-8') as f:
             f.write(onboarding_guide)
@@ -111,7 +117,13 @@ class DocumentationGenerator(BaseAgent):
         Returns:
             str: Markdown-formatted onboarding guide
         """
-        # Extract key information
+        arch_parsed = architecture_result.get('parsed', {})
+        workflow_parsed = workflow_result.get('parsed', {})
+        hotspot_parsed = hotspot_result.get('parsed', {})
+        arch_diagrams = arch_parsed.get('diagrams', {})
+        workflow_diagrams = workflow_parsed.get('workflows', [])
+        hotspot_diagrams = hotspot_parsed.get('diagrams', {})
+
         structure = architecture_result.get('structure', {})
         entry_points = architecture_result.get('entry_points', [])
         dependencies = architecture_result.get('dependencies', [])
@@ -124,6 +136,15 @@ class DocumentationGenerator(BaseAgent):
         
         critical_hotspots = [h for h in hotspots if h.get('risk_level') == 'CRITICAL']
         
+        diagram_context = json.dumps(
+            {
+                "architecture_diagrams": arch_diagrams,
+                "workflows": workflow_diagrams,
+                "hotspot_diagrams": hotspot_diagrams,
+            },
+            indent=2,
+        )
+
         prompt = self.format_prompt(
             """You are creating a comprehensive onboarding guide for new developers joining a project. Create a welcoming, informative guide.
 
@@ -144,20 +165,24 @@ class DocumentationGenerator(BaseAgent):
 ## Areas Requiring Attention
 {hotspots}
 
+## Mermaid diagrams (embed verbatim in markdown fences)
+{diagram_context}
+
 Create a comprehensive onboarding guide in Markdown format with these sections:
 
 1. **Welcome** - Friendly introduction to the project
 2. **Project Overview** - What the project does and its purpose
-3. **Getting Started** - Quick start guide (link to setup instructions)
-4. **Architecture Overview** - High-level architecture (link to architecture report)
+3. **Getting Started** - Quick start guide
+4. **Architecture Overview** - Embed c4_context and request_flow Mermaid diagrams exactly as provided
 5. **Key Components** - Important parts of the codebase
-6. **Development Workflow** - How to develop (link to workflow guide)
-7. **Code Quality** - Standards and best practices
-8. **Areas to Watch** - Known issues and technical debt (link to hotspot report)
+6. **Common Workflows** - Embed workflow sequence Mermaid diagrams exactly as provided
+7. **Code Hotspots** - Embed heatmap Mermaid exactly as provided; advice for new devs
+8. **First Week Checklist** - Actionable checklist
 9. **Getting Help** - Where to find help and resources
 10. **Next Steps** - What to do after reading this guide
 
-Make it friendly and encouraging for new developers. Include links to other generated documentation.""",
+Preserve every ```mermaid code block from the diagram data. Link to ARCHITECTURE.md and WORKFLOWS.md.""",
+            diagram_context=diagram_context,
             repo_path=repo_path,
             total_files=total_files,
             primary_lang=primary_lang,
@@ -188,10 +213,8 @@ Make it friendly and encouraging for new developers. Include links to other gene
 
 ## 📚 Additional Resources
 
-- [Architecture Report](architecture_report.md) - Detailed architecture analysis
-- [Workflow Guide](workflow_guide.md) - Development workflows and processes
-- [Setup Instructions](setup_instructions.md) - Step-by-step setup guide
-- [Hotspot Report](hotspot_report.md) - Code quality and technical debt analysis
+- [Architecture](ARCHITECTURE.md) - Detailed architecture analysis
+- [Workflows](WORKFLOWS.md) - Development workflows and processes
 - [API Reference](API_REFERENCE.md) - API documentation
 - [FAQ](FAQ.md) - Frequently asked questions
 
@@ -203,7 +226,47 @@ We're excited to have you contribute! Please read through this guide and the lin
 """
         
         return header + guide + footer
-    
+
+    def _ensure_diagrams_in_onboarding(
+        self,
+        guide: str,
+        architecture_result: Dict[str, Any],
+        workflow_result: Dict[str, Any],
+        hotspot_result: Dict[str, Any],
+    ) -> str:
+        """Inject Mermaid blocks if the LLM omitted them."""
+        if "```mermaid" in guide:
+            return guide
+
+        blocks: List[str] = []
+        arch_diagrams = architecture_result.get("parsed", {}).get("diagrams", {})
+        for title, key in [
+            ("System Context", "c4_context"),
+            ("Request Flow", "request_flow"),
+        ]:
+            if arch_diagrams.get(key):
+                blocks.append(embed_mermaid_in_markdown(title, arch_diagrams[key]))
+
+        for wf in workflow_result.get("parsed", {}).get("workflows", []):
+            seq = wf.get("diagrams", {}).get("sequence")
+            if seq:
+                blocks.append(
+                    embed_mermaid_in_markdown(
+                        wf.get("name", "Workflow"), seq, heading_level=3
+                    )
+                )
+
+        hotspot_diagrams = hotspot_result.get("parsed", {}).get("diagrams", {})
+        if hotspot_diagrams.get("heatmap"):
+            blocks.append(
+                embed_mermaid_in_markdown("Hotspot Map", hotspot_diagrams["heatmap"])
+            )
+
+        if not blocks:
+            return guide
+
+        return guide + "\n\n## Diagrams\n\n" + "\n".join(blocks)
+
     async def _generate_api_reference(
         self,
         architecture_result: Dict[str, Any],

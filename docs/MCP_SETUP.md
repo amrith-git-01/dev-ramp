@@ -4,9 +4,11 @@ This guide explains how to set up and register MCP (Model Context Protocol) serv
 
 ## Overview
 
-DevRamp uses two MCP servers:
+DevRamp uses three MCP servers:
+
 1. **code-analyzer** - Analyzes codebase structure, dependencies, and complexity
 2. **git-analyzer** - Analyzes git history, hotspots, and contributors
+3. **documentation-generator** - Generates onboarding docs with watsonx.ai
 
 ## Prerequisites
 
@@ -29,17 +31,31 @@ npm install
 npm run build
 ```
 
-This will compile both servers:
+This will compile all servers:
+
 - `code-analyzer/build/server.js`
 - `git-analyzer/build/server.js`
+- `documentation-generator/build/server.js`
 
 ### 3. Verify Build
 
 Check that the build directories exist:
+
 ```bash
 ls code-analyzer/build/server.js
 ls git-analyzer/build/server.js
+ls documentation-generator/build/server.js
 ```
+
+Copy `.bob/mcp_servers.example.json` to your global Bob config and replace `REPLACE_WITH_*` placeholders.
+
+## Bob onboarding demo
+
+1. Build MCP servers (`npm run build` in `src/mcp-servers`)
+2. Register MCPs globally (see below)
+3. Open **Onboarding Assistant** mode in Bob IDE
+4. Run `@onboard` or say `onboard me`
+5. Open `docs/ONBOARDING.md` — Mermaid renders on GitHub and in Bob
 
 ## Global MCP Registration for Bob IDE
 
@@ -51,10 +67,8 @@ The MCP configuration file location depends on your operating system:
 
 - **Windows**: `%APPDATA%\.bob\mcp_servers.json`
   - Typically: `C:\Users\YourUsername\AppData\Roaming\.bob\mcp_servers.json`
-  
 - **macOS**: `~/.bob/mcp_servers.json`
   - Full path: `/Users/YourUsername/.bob/mcp_servers.json`
-  
 - **Linux**: `~/.bob/mcp_servers.json`
   - Full path: `/home/YourUsername/.bob/mcp_servers.json`
 
@@ -77,6 +91,16 @@ Create or edit the `mcp_servers.json` file with the following structure:
       "args": ["ABSOLUTE_PATH/src/mcp-servers/git-analyzer/build/server.js"],
       "env": {
         "REPO_PATH": "ABSOLUTE_PATH/target_repo"
+      }
+    },
+    "documentation-generator": {
+      "command": "node",
+      "args": [
+        "ABSOLUTE_PATH/src/mcp-servers/documentation-generator/build/server.js"
+      ],
+      "env": {
+        "REPO_PATH": "ABSOLUTE_PATH/target_repo",
+        "OUTPUT_DIR": "ABSOLUTE_PATH/docs"
       }
     }
   }
@@ -102,14 +126,18 @@ Create or edit the `mcp_servers.json` file with the following structure:
   "mcpServers": {
     "code-analyzer": {
       "command": "node",
-      "args": ["C:/Users/vishn/Desktop/Programs/ibm-bob/devramp/src/mcp-servers/code-analyzer/build/server.js"],
+      "args": [
+        "C:/Users/vishn/Desktop/Programs/ibm-bob/devramp/src/mcp-servers/code-analyzer/build/server.js"
+      ],
       "env": {
         "REPO_PATH": "C:/Users/vishn/Desktop/Programs/ibm-bob/devramp/test_repo"
       }
     },
     "git-analyzer": {
       "command": "node",
-      "args": ["C:/Users/vishn/Desktop/Programs/ibm-bob/devramp/src/mcp-servers/git-analyzer/build/server.js"],
+      "args": [
+        "C:/Users/vishn/Desktop/Programs/ibm-bob/devramp/src/mcp-servers/git-analyzer/build/server.js"
+      ],
       "env": {
         "REPO_PATH": "C:/Users/vishn/Desktop/Programs/ibm-bob/devramp/test_repo"
       }
@@ -125,14 +153,18 @@ Create or edit the `mcp_servers.json` file with the following structure:
   "mcpServers": {
     "code-analyzer": {
       "command": "node",
-      "args": ["/Users/username/projects/devramp/src/mcp-servers/code-analyzer/build/server.js"],
+      "args": [
+        "/Users/username/projects/devramp/src/mcp-servers/code-analyzer/build/server.js"
+      ],
       "env": {
         "REPO_PATH": "/Users/username/projects/devramp/test_repo"
       }
     },
     "git-analyzer": {
       "command": "node",
-      "args": ["/Users/username/projects/devramp/src/mcp-servers/git-analyzer/build/server.js"],
+      "args": [
+        "/Users/username/projects/devramp/src/mcp-servers/git-analyzer/build/server.js"
+      ],
       "env": {
         "REPO_PATH": "/Users/username/projects/devramp/test_repo"
       }
@@ -172,6 +204,7 @@ python run_analysis.py --repo-path ./test_repo
 ```
 
 The coordinator will:
+
 1. Connect to registered MCP servers
 2. Call tools as needed during analysis
 3. Disconnect when complete
@@ -183,6 +216,7 @@ The coordinator will:
 **Problem**: Bob IDE can't find the MCP server
 
 **Solutions**:
+
 - Verify the path in `mcp_servers.json` is absolute and correct
 - Check that the server.js file exists at the specified path
 - Ensure you've run `npm run build` to compile the servers
@@ -193,6 +227,7 @@ The coordinator will:
 **Problem**: Can't connect to MCP server
 
 **Solutions**:
+
 - Check that Node.js is installed and in PATH
 - Verify the REPO_PATH environment variable points to a valid directory
 - Check server logs for error messages
@@ -203,6 +238,7 @@ The coordinator will:
 **Problem**: MCP tool calls fail or timeout
 
 **Solutions**:
+
 - Verify REPO_PATH points to a valid git repository (for git-analyzer)
 - Check that the repository has read permissions
 - Ensure the repository isn't too large (may cause timeouts)
@@ -213,6 +249,7 @@ The coordinator will:
 **Problem**: `npm run build` fails
 
 **Solutions**:
+
 - Delete `node_modules` and run `npm install` again
 - Check Node.js version (requires 18+)
 - Verify TypeScript is installed: `npm list typescript`
@@ -284,6 +321,7 @@ After setting up MCP servers:
 ## Support
 
 For issues or questions:
+
 - Check the main [README.md](../README.md)
 - Review agent logs for detailed error messages
 - Verify MCP server configuration is correct

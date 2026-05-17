@@ -32,7 +32,7 @@ class AgentCoordinator:
     def __init__(
         self,
         repo_path: str,
-        output_dir: str = 'docs/onboarding',
+        output_dir: str = 'docs',
         mcp_servers_config: Optional[Dict[str, Dict]] = None
     ):
         """
@@ -221,7 +221,7 @@ class AgentCoordinator:
         }
         
         # Phase 1: Run independent agents in parallel
-        phase1_agents = ['architecture', 'workflow']
+        phase1_agents = ['architecture', 'workflow', 'hotspot']
         phase1_tasks = []
         
         for agent_name in phase1_agents:
@@ -241,17 +241,9 @@ class AgentCoordinator:
                     self.results[agent_name] = result
                     context[f'{agent_name}_result'] = result.get('result', {})
         
-        # Phase 2: Run hotspot detector (depends on phase 1)
-        if 'hotspot' in agents_to_run and 'hotspot' in self.agents:
-            self.logger.info("Phase 2: Running hotspot detector")
-            agent = self.agents['hotspot']
-            result = await agent.run(context)
-            self.results['hotspot'] = result
-            context['hotspot_result'] = result.get('result', {})
-        
-        # Phase 3: Run documentation generator (depends on all previous)
+        # Phase 2: Run documentation generator (depends on all previous)
         if 'documentation' in agents_to_run and 'documentation' in self.agents:
-            self.logger.info("Phase 3: Running documentation generator")
+            self.logger.info("Phase 2: Running documentation generator")
             agent = self.agents['documentation']
             result = await agent.run(context)
             self.results['documentation'] = result
@@ -329,7 +321,7 @@ class AgentCoordinator:
 
 async def run_analysis(
     repo_path: str,
-    output_dir: str = 'docs/onboarding',
+    output_dir: str = 'docs',
     agents: Optional[List[str]] = None,
     parallel: bool = False,
     verbose: bool = False,

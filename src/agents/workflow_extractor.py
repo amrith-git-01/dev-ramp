@@ -7,11 +7,17 @@ configuration files and generates workflow documentation.
 
 import json
 import os
+import re
 import yaml
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from src.agents.base_agent import BaseAgent
+from src.agents.diagram_utils import (
+    extract_json_from_llm_text,
+    embed_mermaid_in_markdown,
+    write_mermaid_file,
+)
 
 
 class WorkflowExtractor(BaseAgent):
@@ -60,7 +66,32 @@ class WorkflowExtractor(BaseAgent):
         
         # Step 3: Generate workflow guide
         self.log_info("Generating workflow guide with watsonx.ai...")
-        workflow_guide = await self._generate_workflow_guide(workflows)
+        workflow_report = await self._generate_workflow_guide(workflows)
+        workflow_data = self._parse_workflow_json(workflow_report)
+        if workflow_data is None:
+            workflow_report = await self._generate_workflow_guide(workflows, json_only=True)
+            workflow_data = self._parse_workflow_json(workflow_report)
+        if workflow_data is None:
+            workflow_data = {"workflows": []}
+
+        docs_root = output_dir.parent if output_dir.name == "onboarding" else output_dir
+        lines = ["# Workflows\n\n"]
+        for wf in workflow_data.get("workflows", []):
+            lines.append(f"## {wf.get('name', 'Workflow')}\n\n")
+            for step in wf.get("steps", []):
+                lines.append(f"- {step}\n")
+            seq = wf.get("diagrams", {}).get("sequence")
+            if seq:
+                slug = re.sub(r"[^a-z0-9]+", "-", wf.get("name", "workflow").lower()).strip("-")
+                write_mermaid_file(docs_root, f"workflow-{slug}", seq)
+                lines.append("\n")
+                lines.append(embed_mermaid_in_markdown("Sequence", seq, heading_level=3))
+            lines.append("\n")
+        workflows_path = docs_root / "WORKFLOWS.md"
+        workflows_path.write_text("".join(lines), encoding="utf-8")
+        self.log_info(f"Workflows saved to {workflows_path}")
+
+        workflow_guide = workflow_report
         
         # Step 4: Generate setup instructions
         self.log_info("Generating setup instructions...")
@@ -80,10 +111,18 @@ class WorkflowExtractor(BaseAgent):
         self.log_info(f"Setup instructions saved to {setup_path}")
         
         return {
-            'workflow_guide': str(workflow_path),
+            'workflow_guide': str(workflows_path),
             'setup_instructions': str(setup_path),
-            'discovered_files': {k: v['path'] for k, v in workflows.items()}
+            'discovered_files': {k: v['path'] for k, v in workflows.items()},
+            'parsed': workflow_data,
         }
+
+    def _parse_workflow_json(self, text: str) -> Optional[Dict[str, Any]]:
+        try:
+            return extract_json_from_llm_text(text)
+        except (json.JSONDecodeError, ValueError) as e:
+            self.log_error(f"Failed to parse workflow JSON: {e}")
+            return None
     
     def _discover_workflow_files(self, repo_path: Path) -> Dict[str, Path]:
         """
@@ -156,7 +195,9 @@ class WorkflowExtractor(BaseAgent):
             self.log_warning(f"Failed to read {file_path}: {e}")
             return ""
     
-    async def _generate_workflow_guide(self, workflows: Dict[str, Dict]) -> str:
+    async def _generate_workflow_guide(
+        self, workflows: Dict[str, Dict], json_only: bool = False
+    ) -> str:
         """
         Generate workflow guide using watsonx.ai.
         
@@ -169,8 +210,13 @@ class WorkflowExtractor(BaseAgent):
         # Prepare workflow summaries
         workflow_summary = self._summarize_workflows(workflows)
         
+        json_suffix = (
+            " Return ONLY raw JSON, no markdown fences or prose."
+            if json_only
+            else ""
+        )
         prompt = self.format_prompt(
-            """You are a technical writer creating a development workflow guide. Analyze the following workflow files and create a comprehensive guide.
+            """You are a technical writer. Return ONLY valid JSON (no prose).{json_suffix}
 
 ## Available Workflow Files
 {workflow_files}
@@ -178,33 +224,24 @@ class WorkflowExtractor(BaseAgent):
 ## File Contents Summary
 {workflow_summary}
 
-Generate a detailed workflow guide in Markdown format with these sections:
+Return ONLY JSON:
+{{
+  "workflows": [
+    {{
+      "name": "Workflow name",
+      "steps": ["step 1", "step 2"],
+      "diagrams": {{ "sequence": "sequenceDiagram\\n  Client->>API: request" }}
+    }}
+  ]
+}}
 
-1. **Development Workflow Overview** - High-level description of the development process
-2. **Build Process** - How to build the project (commands, tools, steps)
-3. **Testing** - How to run tests (unit, integration, e2e)
-4. **CI/CD Pipeline** - Automated workflows and deployment process
-5. **Code Quality** - Linting, formatting, and quality checks
-6. **Common Tasks** - Frequently used commands and scripts
-7. **Troubleshooting** - Common issues and solutions
-
-Be specific and include actual commands from the files. Format commands in code blocks.""",
+Use valid Mermaid sequenceDiagram syntax. Escape newlines as \\n in JSON strings.""",
+            json_suffix=json_suffix,
             workflow_files=', '.join(workflows.keys()),
-            workflow_summary=workflow_summary
+            workflow_summary=workflow_summary,
         )
-        
-        guide = await self.generate(prompt, max_tokens=2000, temperature=0.3)
-        
-        header = f"""# Development Workflow Guide
 
-**Generated by:** DevRamp Workflow Extractor
-**Date:** {self._get_timestamp()}
-
----
-
-"""
-        
-        return header + guide
+        return await self.generate(prompt, max_tokens=2000, temperature=0.3)
     
     async def _generate_setup_instructions(self, workflows: Dict[str, Dict]) -> str:
         """
