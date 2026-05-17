@@ -7,11 +7,17 @@ MCP code-analyzer tools and watsonx.ai.
 
 import json
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 from src.agents.base_agent import BaseAgent
 from src.agents.mcp_client import MCPClient
+from src.agents.diagram_utils import (
+    extract_json_from_llm_text,
+    persist_diagrams,
+    embed_mermaid_in_markdown,
+    build_fallback_architecture_diagrams,
+)
 
 
 class ArchitectureAnalyzer(BaseAgent):
@@ -68,39 +74,90 @@ class ArchitectureAnalyzer(BaseAgent):
         architecture_report = await self._generate_architecture_report(
             structure, entry_points, dependencies, complexity
         )
-        
-        # Step 3: Generate dependency graph
-        self.log_info("Creating dependency graph...")
+
+        docs_root = output_dir.parent if output_dir.name == "onboarding" else output_dir
+        arch_data = self._parse_architecture_json(architecture_report)
+        if arch_data is None:
+            self.log_info("Retrying architecture report with JSON-only prompt...")
+            architecture_report = await self._generate_architecture_report(
+                structure,
+                entry_points,
+                dependencies,
+                complexity,
+                json_only=True,
+            )
+            arch_data = self._parse_architecture_json(architecture_report)
+
+        if arch_data is None:
+            arch_data = {
+                "pattern": "unknown",
+                "components": [],
+                "tech_stack": [],
+                "summary_markdown": (
+                    "Architecture analysis completed from MCP data. "
+                    "Diagrams below were generated from repository structure."
+                ),
+                "diagrams": build_fallback_architecture_diagrams(
+                    entry_points, dependencies
+                ),
+            }
+
+        diagrams = arch_data.get("diagrams") or build_fallback_architecture_diagrams(
+            entry_points, dependencies
+        )
+        arch_data["diagrams"] = diagrams
+        persist_diagrams(docs_root, diagrams, prefix="architecture")
+
+        arch_md_parts = [
+            "# Architecture\n\n",
+            arch_data.get("summary_markdown", ""),
+            "\n\n",
+        ]
+        for title, key in [
+            ("System Context", "c4_context"),
+            ("Request Flow", "request_flow"),
+            ("Dependencies", "dependency_graph"),
+        ]:
+            if diagrams.get(key):
+                arch_md_parts.append(embed_mermaid_in_markdown(title, diagrams[key]))
+
+        arch_path = docs_root / "ARCHITECTURE.md"
+        arch_path.write_text("".join(arch_md_parts), encoding="utf-8")
+
+        generated_dir = docs_root.parent / "generated"
+        generated_dir.mkdir(parents=True, exist_ok=True)
         dependency_graph = self._create_dependency_graph(dependencies)
-        
-        # Step 4: Save outputs
-        report_path = output_dir / 'architecture_report.md'
-        graph_path = output_dir / 'dependency_graph.json'
-        
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write(architecture_report)
-        
-        with open(graph_path, 'w', encoding='utf-8') as f:
+        graph_path = generated_dir / "dependency_graph.json"
+        with open(graph_path, "w", encoding="utf-8") as f:
             json.dump(dependency_graph, f, indent=2)
-        
-        self.log_info(f"Architecture report saved to {report_path}")
-        self.log_info(f"Dependency graph saved to {graph_path}")
-        
+
+        self.log_info(f"Architecture report saved to {arch_path}")
+
         return {
-            'architecture_report': str(report_path),
-            'dependency_graph': str(graph_path),
-            'structure': structure,
-            'entry_points': entry_points,
-            'dependencies': dependencies,
-            'complexity': complexity
+            "architecture_report": str(arch_path),
+            "dependency_graph": str(graph_path),
+            "structure": structure,
+            "entry_points": entry_points,
+            "dependencies": dependencies,
+            "complexity": complexity,
+            "parsed": arch_data,
         }
+
+    def _parse_architecture_json(self, text: str) -> Optional[Dict[str, Any]]:
+        """Parse LLM JSON architecture response; return None on failure."""
+        try:
+            return extract_json_from_llm_text(text)
+        except (json.JSONDecodeError, ValueError) as e:
+            self.log_error(f"Failed to parse architecture JSON: {e}")
+            return None
     
     async def _generate_architecture_report(
         self,
         structure: Dict[str, Any],
         entry_points: list,
         dependencies: list,
-        complexity: list
+        complexity: list,
+        json_only: bool = False,
     ) -> str:
         """
         Generate architecture report using watsonx.ai.
@@ -122,63 +179,57 @@ class ArchitectureAnalyzer(BaseAgent):
         top_deps = dependencies[:10] if dependencies else []
         high_complexity = [c for c in complexity if c.get('complexity', 0) > 20][:5]
         
-        # Create prompt
+        json_suffix = (
+            " Return ONLY raw JSON, no markdown fences or prose."
+            if json_only
+            else ""
+        )
         prompt = self.format_prompt(
-            """You are a senior software architect analyzing a codebase. Generate a comprehensive architecture report.
+            """You are a senior software architect creating MCP-grounded onboarding material. Return ONLY valid JSON (no prose).{json_suffix}
 
-## Codebase Overview
-- Total Files: {total_files}
-- File Types: {file_types}
-- Primary Language: {primary_lang}
+## Quality Rules
+- Use only the MCP data below. Do not invent architecture patterns, services, frameworks, data stores, or entry points.
+- Cite concrete repo paths and dependency names in summary_markdown whenever possible.
+- If the architecture pattern is unclear, set "pattern" to "unknown" and explain what evidence is missing.
+- Produce polished, GitHub-compatible Mermaid. Keep diagrams readable and avoid nodes that are not supported by the data.
+- Make the output useful for a new developer's first week, not a generic architecture essay.
 
-## Entry Points
+## Data
+Structure summary — total files: {total_files}, types: {file_types}, primary: {primary_lang}
+Entry points:
 {entry_points}
-
-## Key Dependencies
+Dependencies:
 {dependencies}
-
-## Complexity Hotspots
+Complexity:
 {complexity}
-
-## Largest Files
+Largest files:
 {largest_files}
 
-Generate a detailed architecture report in Markdown format with the following sections:
-1. **Executive Summary** - High-level overview of the architecture
-2. **Technology Stack** - Languages, frameworks, and key dependencies
-3. **System Architecture** - Overall structure and design patterns
-4. **Entry Points** - Main entry points and their purposes
-5. **Module Organization** - How code is organized into modules/packages
-6. **Key Components** - Important components and their responsibilities
-7. **Data Flow** - How data flows through the system
-8. **Complexity Analysis** - Areas of high complexity that may need attention
-9. **Architecture Recommendations** - Suggestions for improvements
+## Required JSON shape
+{{
+  "pattern": "e.g. MVC, microservices, layered",
+  "components": [{{"id": "api", "name": "API Layer"}}],
+  "tech_stack": ["language", "framework"],
+  "summary_markdown": "2-3 paragraphs",
+  "diagrams": {{
+    "c4_context": "graph TB\\n  User[User] --> System[System]",
+    "request_flow": "flowchart LR\\n  Client --> API --> DB[(Database)]",
+    "dependency_graph": "graph LR\\n  ..."
+  }}
+}}
 
-Be specific and technical. Use the actual data provided.""",
+Use valid Mermaid syntax. Escape newlines as \\n in JSON strings.""",
+            json_suffix=json_suffix,
             total_files=total_files,
             file_types=', '.join(f"{ext}: {count}" for ext, count in sorted(files_by_ext.items(), key=lambda x: -x[1])[:5]),
             primary_lang=max(files_by_ext.items(), key=lambda x: x[1])[0] if files_by_ext else 'Unknown',
             entry_points=self._format_entry_points(entry_points),
             dependencies=self._format_dependencies(top_deps),
             complexity=self._format_complexity(high_complexity),
-            largest_files=self._format_largest_files(largest_files)
+            largest_files=self._format_largest_files(largest_files),
         )
-        
-        # Generate report
-        report = await self.generate(prompt, max_tokens=2000, temperature=0.3)
-        
-        # Add metadata header
-        header = f"""# Architecture Report
 
-**Generated by:** DevRamp Architecture Analyzer
-**Date:** {self._get_timestamp()}
-**Total Files Analyzed:** {total_files}
-
----
-
-"""
-        
-        return header + report
+        return await self.generate(prompt, max_tokens=2000, temperature=0.3)
     
     def _create_dependency_graph(self, dependencies: list) -> Dict[str, Any]:
         """

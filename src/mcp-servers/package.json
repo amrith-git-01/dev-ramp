@@ -1,5 +1,5 @@
 {
-  "name": "devramp-mcp-servers",
+  "name": "RepoRadar-mcp-servers",
   "version": "1.0.0",
   "description": "Model Context Protocol servers for Legacy Codebase Onboarding Accelerator",
   "main": "dist/index.js",
@@ -25,9 +25,10 @@
     "legacy-code",
     "onboarding"
   ],
-  "author": "DevRamp Team",
+  "author": "RepoRadar Team",
   "license": "MIT",
   "dependencies": {
+    "@ibm-cloud/watsonx-ai": "^1.7.12",
     "@modelcontextprotocol/sdk": "^0.5.0"
   },
   "devDependencies": {

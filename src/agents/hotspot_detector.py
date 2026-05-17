@@ -6,11 +6,16 @@ git history analysis and complexity metrics, then generates refactoring recommen
 """
 
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from src.agents.base_agent import BaseAgent
 from src.agents.mcp_client import MCPClient
+from src.agents.diagram_utils import (
+    extract_json_from_llm_text,
+    persist_diagrams,
+    build_fallback_hotspot_diagrams,
+)
 
 
 class HotspotDetector(BaseAgent):
@@ -60,9 +65,13 @@ class HotspotDetector(BaseAgent):
         self.log_info("Analyzing code complexity...")
         complexity_metrics = await self.code_analyzer.call_tool('get_complexity_metrics')
         
-        # Step 3: Get contributor information
+        # Step 3: Get contributor information (optional for large repos)
         self.log_info("Analyzing contributors...")
-        contributors = await self.git_analyzer.call_tool('get_contributors')
+        try:
+            contributors = await self.git_analyzer.call_tool('get_contributors')
+        except Exception as e:
+            self.log_warning(f"Contributor analysis skipped: {e}")
+            contributors = []
         
         # Step 4: Combine metrics to identify true hotspots
         self.log_info("Identifying critical hotspots...")
@@ -73,31 +82,42 @@ class HotspotDetector(BaseAgent):
         hotspot_report = await self._generate_hotspot_report(
             hotspots, git_hotspots, complexity_metrics, contributors
         )
-        
-        # Step 6: Generate refactoring priorities
-        self.log_info("Creating refactoring priorities...")
+        hotspot_data = self._parse_hotspot_json(hotspot_report)
+        if hotspot_data is None:
+            hotspot_report = await self._generate_hotspot_report(
+                hotspots, git_hotspots, complexity_metrics, contributors, json_only=True
+            )
+            hotspot_data = self._parse_hotspot_json(hotspot_report)
+        if hotspot_data is None:
+            hotspot_data = build_fallback_hotspot_diagrams(hotspots)
+
+        docs_root = output_dir.parent if output_dir.name == "onboarding" else output_dir
+        diagrams = hotspot_data.get("diagrams", {})
+        persist_diagrams(docs_root, diagrams, prefix="hotspot")
+
+        generated_dir = docs_root.parent / "generated"
+        generated_dir.mkdir(parents=True, exist_ok=True)
         refactoring_priorities = self._create_refactoring_priorities(hotspots)
-        
-        # Step 7: Save outputs
-        report_path = output_dir / 'hotspot_report.md'
-        priorities_path = output_dir / 'refactoring_priorities.json'
-        
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write(hotspot_report)
-        
-        with open(priorities_path, 'w', encoding='utf-8') as f:
+        priorities_path = generated_dir / "refactoring_priorities.json"
+        with open(priorities_path, "w", encoding="utf-8") as f:
             json.dump(refactoring_priorities, f, indent=2)
-        
-        self.log_info(f"Hotspot report saved to {report_path}")
-        self.log_info(f"Refactoring priorities saved to {priorities_path}")
-        
+
+        self.log_info(f"Hotspot diagrams saved under {docs_root / 'diagrams'}")
+
         return {
-            'hotspot_report': str(report_path),
-            'refactoring_priorities': str(priorities_path),
-            'hotspots': hotspots,
-            'git_hotspots': git_hotspots,
-            'complexity_metrics': complexity_metrics
+            "hotspots": hotspots,
+            "git_hotspots": git_hotspots,
+            "complexity_metrics": complexity_metrics,
+            "parsed": hotspot_data,
+            "refactoring_priorities": str(priorities_path),
         }
+
+    def _parse_hotspot_json(self, text: str) -> Optional[Dict[str, Any]]:
+        try:
+            return extract_json_from_llm_text(text)
+        except (json.JSONDecodeError, ValueError) as e:
+            self.log_error(f"Failed to parse hotspot JSON: {e}")
+            return None
     
     def _identify_hotspots(
         self,
@@ -211,7 +231,8 @@ class HotspotDetector(BaseAgent):
         hotspots: List[Dict],
         git_hotspots: List[Dict],
         complexity_metrics: List[Dict],
-        contributors: List[Dict]
+        contributors: List[Dict],
+        json_only: bool = False,
     ) -> str:
         """
         Generate hotspot report using watsonx.ai.
@@ -231,8 +252,20 @@ class HotspotDetector(BaseAgent):
         # Get top contributors
         top_contributors = contributors[:5] if contributors else []
         
+        json_suffix = (
+            " Return ONLY raw JSON, no markdown fences or prose."
+            if json_only
+            else ""
+        )
         prompt = self.format_prompt(
-            """You are a senior software engineer analyzing code quality and technical debt. Generate a comprehensive hotspot analysis report.
+            """You are a senior software engineer creating MCP-grounded hotspot guidance for onboarding. Return ONLY valid JSON (no prose).{json_suffix}
+
+## Quality Rules
+- Explain risk using only the git and complexity metrics below: commits, authors, change frequency, complexity, lines, and maintainability.
+- Do not claim a file has bugs, duplication, ownership problems, or architectural debt unless the provided metrics support that claim.
+- Advice must be actionable and conservative for a new developer: what to inspect, what tests to add, and how to change safely.
+- Use exact file paths from the hotspot data.
+- Mermaid must be GitHub-compatible and readable.
 
 ## Critical Hotspots (High Risk Files)
 {critical_hotspots}
@@ -243,44 +276,27 @@ class HotspotDetector(BaseAgent):
 - High Risk Files: {high_count}
 - Top Contributors: {top_contributors}
 
-## Analysis Context
-These hotspots were identified by combining:
-1. Git history (frequently changed files)
-2. Code complexity metrics
-3. Maintainability indices
-4. Change frequency patterns
+Return ONLY JSON:
+{{
+  "hotspots": [
+    {{"file": "path", "risk": "high", "advice": "..."}}
+  ],
+  "diagrams": {{
+    "heatmap": "graph TB\\n  ...",
+    "timeline": "timeline\\n  title History\\n  ..."
+  }}
+}}
 
-Generate a detailed hotspot report in Markdown format with these sections:
-
-1. **Executive Summary** - Overview of technical debt and risk areas
-2. **Critical Hotspots** - Detailed analysis of highest-risk files
-3. **Risk Factors** - What makes these files problematic
-4. **Impact Assessment** - Potential impact on development velocity and quality
-5. **Refactoring Strategy** - Recommended approach for addressing hotspots
-6. **Quick Wins** - Easy improvements that can be made immediately
-7. **Long-term Recommendations** - Strategic improvements for technical debt reduction
-
-Be specific about each file and provide actionable recommendations.""",
+Use GitHub-compatible Mermaid (graph TB, timeline). Escape newlines as \\n in JSON strings.""",
+            json_suffix=json_suffix,
             critical_hotspots=self._format_hotspots(critical_hotspots),
             total_files=len(hotspots),
             critical_count=len([h for h in hotspots if h['risk_level'] == 'CRITICAL']),
             high_count=len([h for h in hotspots if h['risk_level'] == 'HIGH']),
-            top_contributors=self._format_contributors(top_contributors)
+            top_contributors=self._format_contributors(top_contributors),
         )
-        
-        report = await self.generate(prompt, max_tokens=2000, temperature=0.3)
-        
-        header = f"""# Code Hotspot Analysis Report
 
-**Generated by:** DevRamp Hotspot Detector
-**Date:** {self._get_timestamp()}
-**Files Analyzed:** {len(hotspots)}
-
----
-
-"""
-        
-        return header + report
+        return await self.generate(prompt, max_tokens=2000, temperature=0.3)
     
     def _create_refactoring_priorities(self, hotspots: List[Dict]) -> Dict[str, Any]:
         """

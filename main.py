@@ -2,20 +2,21 @@
 """
 Legacy Codebase Onboarding Accelerator - Main Entry Point
 
-This is the main entry point for the DevRamp project, which uses IBM watsonx.ai
+This is the main entry point for the RepoRadar project, which uses IBM watsonx.ai
 and watsonx Orchestrate to analyze legacy codebases and generate onboarding documentation.
 
 Phase 1: Project setup and foundation
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
+
 from dotenv import load_dotenv
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich import box
 
 # Load environment variables
 load_dotenv()
@@ -33,7 +34,7 @@ def print_banner():
     ╔═══════════════════════════════════════════════════════════╗
     ║                                                           ║
     ║        Legacy Codebase Onboarding Accelerator            ║
-    ║                      DevRamp v1.0                         ║
+    ║                      RepoRadar v1.0                       ║
     ║                                                           ║
     ║        Powered by IBM watsonx.ai & Orchestrate            ║
     ║                                                           ║
@@ -45,28 +46,30 @@ def print_banner():
 def check_environment():
     """
     Check if the environment is properly configured.
-    
+
     Returns:
         bool: True if environment is valid, False otherwise
     """
     console.print("\n[bold]Checking Environment Configuration...[/bold]\n")
-    
+
     # Create status table
     table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
     table.add_column("Component", style="cyan", width=30)
     table.add_column("Status", width=15)
     table.add_column("Details", width=40)
-    
+
     all_valid = True
-    
+
     # Check Python version
-    python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    python_version = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
     if sys.version_info >= (3, 9):
         table.add_row("Python Version", "✓ OK", f"v{python_version}")
     else:
         table.add_row("Python Version", "✗ FAIL", f"v{python_version} (requires 3.9+)")
         all_valid = False
-    
+
     # Check watsonx.ai configuration
     is_valid, error_msg = config.validate()
     if is_valid:
@@ -74,7 +77,7 @@ def check_environment():
     else:
         table.add_row("watsonx.ai Config", "✗ FAIL", error_msg)
         all_valid = False
-    
+
     # Check directory structure
     required_dirs = [
         "src/agents",
@@ -83,28 +86,28 @@ def check_environment():
         "bob_sessions",
         "docs/onboarding",
         "config",
-        "orchestrate"
+        "orchestrate",
     ]
-    
+
     missing_dirs = []
     for dir_path in required_dirs:
         if not Path(dir_path).exists():
             missing_dirs.append(dir_path)
-    
+
     if not missing_dirs:
         table.add_row("Directory Structure", "✓ OK", "All directories present")
     else:
-        table.add_row("Directory Structure", "✗ FAIL", f"{len(missing_dirs)} directories missing")
+        table.add_row(
+            "Directory Structure", "✗ FAIL", f"{len(missing_dirs)} directories missing"
+        )
         all_valid = False
-    
+
     # Check Node.js for MCP servers
     try:
         import subprocess
+
         result = subprocess.run(
-            ["node", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5
+            ["node", "--version"], capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             node_version = result.stdout.strip()
@@ -113,37 +116,37 @@ def check_environment():
             table.add_row("Node.js", "⚠ WARNING", "Not found (needed for MCP servers)")
     except (FileNotFoundError, subprocess.TimeoutExpired):
         table.add_row("Node.js", "⚠ WARNING", "Not found (needed for MCP servers)")
-    
+
     # Check required files
     required_files = [
         "config/watsonx_config.py",
         "orchestrate/agents.yaml",
         "src/mcp-servers/package.json",
         "src/mcp-servers/tsconfig.json",
-        ".env.example"
+        ".env.example",
     ]
-    
+
     missing_files = []
     for file_path in required_files:
         if not Path(file_path).exists():
             missing_files.append(file_path)
-    
+
     if not missing_files:
         table.add_row("Required Files", "✓ OK", "All files present")
     else:
         table.add_row("Required Files", "✗ FAIL", f"{len(missing_files)} files missing")
         all_valid = False
-    
+
     console.print(table)
     console.print()
-    
+
     return all_valid
 
 
 def show_status():
     """Display current project status."""
     console.print("\n[bold]Project Status:[/bold]\n")
-    
+
     status_panel = Panel(
         "[green]✓[/green] Phase 1: Project Setup - [bold green]COMPLETE[/bold green]\n\n"
         "Components Initialized:\n"
@@ -158,25 +161,27 @@ def show_status():
         "  4. Proceed to Phase 2: MCP Server Implementation",
         title="[bold cyan]Phase 1 Status[/bold cyan]",
         border_style="cyan",
-        box=box.DOUBLE
+        box=box.DOUBLE,
     )
-    
+
     console.print(status_panel)
 
 
 def show_help():
     """Display help information."""
     console.print("\n[bold]Available Commands:[/bold]\n")
-    
+
     help_table = Table(show_header=True, header_style="bold magenta", box=box.ROUNDED)
     help_table.add_column("Command", style="cyan", width=30)
     help_table.add_column("Description", width=50)
-    
+
     help_table.add_row("python main.py", "Show project status and environment check")
     help_table.add_row("python main.py --help", "Display this help message")
     help_table.add_row("python test_watsonx.py", "Test watsonx.ai connection")
-    help_table.add_row("cd src/mcp-servers && npm install", "Install MCP server dependencies")
-    
+    help_table.add_row(
+        "cd src/mcp-servers && npm install", "Install MCP server dependencies"
+    )
+
     console.print(help_table)
     console.print()
 
@@ -188,16 +193,16 @@ def main():
         print_banner()
         show_help()
         return 0
-    
+
     # Display banner
     print_banner()
-    
+
     # Check environment
     env_valid = check_environment()
-    
+
     # Show status
     show_status()
-    
+
     # Show next steps if environment is not fully configured
     if not env_valid:
         console.print("\n[bold yellow]⚠ Configuration Required[/bold yellow]\n")
@@ -206,10 +211,12 @@ def main():
         console.print("  2. Add your watsonx.ai credentials to .env")
         console.print("  3. Run this script again to verify\n")
         return 1
-    
+
     console.print("\n[bold green]✓ Environment is ready![/bold green]")
-    console.print("Run [cyan]python test_watsonx.py[/cyan] to test your watsonx.ai connection.\n")
-    
+    console.print(
+        "Run [cyan]python test_watsonx.py[/cyan] to test your watsonx.ai connection.\n"
+    )
+
     return 0
 
 
@@ -222,6 +229,7 @@ if __name__ == "__main__":
     except Exception as e:
         console.print(f"\n[bold red]Error:[/bold red] {str(e)}\n")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

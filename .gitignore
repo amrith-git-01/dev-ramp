@@ -97,7 +97,6 @@ $RECYCLE.BIN/
 .Trashes
 
 # Project Specific
-bob_sessions/
 docs/onboarding/generated/
 *.log
 *.tmp

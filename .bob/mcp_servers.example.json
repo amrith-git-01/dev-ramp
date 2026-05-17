@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "code-analyzer": {
+      "command": "node",
+      "args": [
+        "REPLACE_WITH_REPO_ROOT/src/mcp-servers/code-analyzer/build/server.js"
+      ],
+      "env": { "REPO_PATH": "REPLACE_WITH_TARGET_REPO" }
+    },
+    "git-analyzer": {
+      "command": "node",
+      "args": [
+        "REPLACE_WITH_REPO_ROOT/src/mcp-servers/git-analyzer/build/server.js"
+      ],
+      "env": { "REPO_PATH": "REPLACE_WITH_TARGET_REPO" }
+    },
+    "documentation-generator": {
+      "command": "node",
+      "args": [
+        "REPLACE_WITH_REPO_ROOT/src/mcp-servers/documentation-generator/build/server.js"
+      ],
+      "env": {
+        "REPO_PATH": "REPLACE_WITH_TARGET_REPO",
+        "OUTPUT_DIR": "REPLACE_WITH_REPO_ROOT/docs"
+      }
+    }
+  }
+}
